@@ -5,8 +5,9 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 
-// ^Purpose: Declares POSIX socket functions for creating and managing TCP sockets
-// ^Dependencies: sys/socket.h, netinet/in.h for socket operations
+// ^Purpose: Declares POSIX socket functions for TCP socket management within posix_soc namespace
+// ^Dependencies: sys/socket.h, netinet/in.h for socket operations, string for send_data
+
 
 // Create a TCP socket
 // ^Purpose: Creates a new IPv4 TCP socket
@@ -31,14 +32,6 @@ int bind_socket(int sockfd, sockaddr_in* address);
 // ^Input: sockfd - Socket file descriptor
 // ^Output: 0 if successful, -1 if failed
 int listen_socket(int sockfd);
-
-// Accept a client connection
-// ^Purpose: Accepts a new client connection, creating a new socket
-// ^Input: sockfd - Server socket file descriptor
-// ^Input: address - Pointer to sockaddr_in for client address
-// ^Input: addrlen - Pointer to address length
-// ^Output: New socket file descriptor, or -1 if failed
-int accept_connection(int sockfd, sockaddr_in* address, socklen_t* addrlen);
 
 // Receive data from socket
 // ^Purpose: Reads data into a buffer from a client socket

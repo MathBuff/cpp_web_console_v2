@@ -1,12 +1,129 @@
-#include "websocket.h"
+#include "posix_websocket.h"
 #include <iostream>
-#include <fstream>
 #include <sstream>
+#include <fstream>
 #include <openssl/buffer.h>
 #include <algorithm>
 #include <string>
+#include "posix_socket.h"
+#include "posix_server_setup.h"
 
-// ^Purpose: Implements WebSocket functions for handshake, frames, and file reading
+// ^Purpose: Implements WebSocket functions for handshake and frames
+// ^Dependencies: websocket.h, fstream for read_file
+
+std::string read_file(const std::string& filename) {
+    std::ifstream file(filename);
+    if (!file.is_open()) {
+        return "";
+    }
+    std::stringstream buffer;
+    buffer << file.rdbuf();
+    return buffer.str();
+}
+
+bool init_websocket_connection() {
+    sockaddr_in address; // Address to initialize
+    
+    // Set up server socket
+    server_fd = setup_server_socket(address);
+    if (server_fd == -1) {
+        return false;
+    }
+
+    // Accept first connection
+    
+    socklen_t addrlen = sizeof(address);
+    int first_socket = accept_connection(server_fd, &address, &addrlen);
+    if (first_socket < 0) {
+        close_socket(server_fd);
+        server_fd = -1;
+        return false;
+    }
+    std::cout << "New client connected, FD: " << first_socket << "\n";
+
+    // Receive request
+    char buffer[1024] = {0};
+    ssize_t bytes_received = receive_data(first_socket, buffer, sizeof(buffer));
+    if (bytes_received <= 0) {
+        close_socket(first_socket);
+        close_socket(server_fd);
+        server_fd = -1;
+        return false;
+    }
+    buffer[bytes_received] = '\0';
+    std::cout << "Received request:\n" << buffer << "\n";
+
+    // Check if it's a WebSocket upgrade
+    std::string request(buffer);
+    if (handle_websocket_upgrade(first_socket, request)) {
+        client_socket = first_socket;
+        return true;
+    }
+
+    // Otherwise, assume HTTP and serve index.html
+    std::string html = read_file("index.html");
+    if (html.empty()) {
+        std::cerr << "Failed to load HTML\n";
+        html = "<h1>Error: Could not load page</h1>";
+    }
+    std::string response =
+        "HTTP/1.1 200 OK\r\n"
+        "Content-Type: text/html\r\n"
+        "Content-Length: " + std::to_string(html.length()) + "\r\n"
+        "\r\n" + html;
+    if (send_data(first_socket, response) < 0) {
+        std::cerr << "Failed to send HTML response\n";
+    }
+    std::cout << "HTML response sent\n";
+    close_socket(first_socket);
+
+    // Accept WebSocket connection
+    client_socket = accept_connection(server_fd, &address, &addrlen);
+    if (client_socket < 0) {
+        close_socket(server_fd);
+        server_fd = -1;
+        return false;
+    }
+    std::cout << "New client connected (WebSocket), FD: " << client_socket << "\n";
+
+    // Receive WebSocket upgrade request
+    bytes_received = receive_data(client_socket, buffer, sizeof(buffer));
+    if (bytes_received <= 0) {
+        close_socket(client_socket);
+        close_socket(server_fd);
+        client_socket = -1;
+        server_fd = -1;
+        return false;
+    }
+    buffer[bytes_received] = '\0';
+    std::cout << "Received request:\n" << buffer << "\n";
+
+    // Handle WebSocket upgrade
+    request = buffer;
+    if (!handle_websocket_upgrade(client_socket, request)) {
+        std::cerr << "Failed to upgrade to WebSocket\n";
+        close_socket(client_socket);
+        close_socket(server_fd);
+        client_socket = -1;
+        server_fd = -1;
+        return false;
+    }
+
+    return true;
+}
+
+void close_websocket_connection() {
+    if (client_socket >= 0) {
+        close_socket(client_socket);
+        client_socket = -1;
+        std::cout << "WebSocket client socket closed\n";
+    }
+    if (server_fd >= 0) {
+        close_socket(server_fd);
+        server_fd = -1;
+        std::cout << "Server socket closed\n";
+    }
+}
 
 bool contains_header_value(const std::string& request, const std::string& header, const std::string& value) {
     std::string request_lower = request;
@@ -135,15 +252,4 @@ bool handle_websocket_upgrade(int client_socket, const std::string& request) {
     }
     std::cout << "WebSocket handshake completed\n";
     return true;
-}
-
-std::string read_file(const std::string& filename) {
-    std::ifstream file(filename);
-    if (!file.is_open()) {
-        std::cerr << "Failed to open file: " << filename << "\n";
-        return "";
-    }
-    std::stringstream buffer;
-    buffer << file.rdbuf();
-    return buffer.str();
 }
