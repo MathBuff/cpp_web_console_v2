@@ -11,8 +11,8 @@
 
 // ^Purpose: Declares WebSocket functions and struct for handshake and frame handling
 // ^Dependencies: sys/socket.h, netinet/in.h, openssl for SHA-1/Base64, posix_socket.h for close_socket
-static int server_fd ;
-static int client_socket;
+extern int server_fd;
+extern int client_socket;
 
 bool init_websocket_connection();
 void close_websocket_connection();
@@ -33,4 +33,3 @@ void send_websocket_frame(int client_socket, const std::string& message);
 bool handle_websocket_upgrade(int client_socket, const std::string& request);
 
 #endif // WEBSOCKET_H
-
