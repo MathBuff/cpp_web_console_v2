@@ -1,0 +1,4 @@
+This baby requires:
+sudo apt-get install libssl-dev
+#these are used for custom linux web socket additions
+

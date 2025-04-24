@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Web Console</title>
+	<style>
+    	body {
+        	font-family: monospace;
+        	background: black;
+        	color: green;
+        	padding: 10px;
+    	}
+
+        #input{
+        background: black;
+        color:white;
+        }
+	</style>
+</head>
+<body>
+	<div id="console">Connected to server</div>
+	<input id="input" placeholder="Type a message">
+
+	<script>
+    	const ws = new WebSocket('ws://localhost:8080');
+    	ws.onmessage = (event) => {
+        	document.getElementById('console').innerHTML = event.data;
+    	};
+    	ws.onopen = () => {
+        	document.getElementById('console').innerHTML = 'Connected!';
+    	};
+    	document.getElementById('input').addEventListener('change', (event) => {
+        	ws.send(event.target.value);
+        	event.target.value = '';
+    	});
+	</script>
+
+</body>
+</html>
